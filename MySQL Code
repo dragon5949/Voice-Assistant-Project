@@ -1,0 +1,13 @@
+# Table Creation
+create database Project;
+use Project;
+create table Conversations(
+u_name varchar(100),
+command varchar(1000),
+u_time date);
+
+# For Checking the Table
+select * from Conversations;
+
+# To see Table Structure
+desc Conversations;
