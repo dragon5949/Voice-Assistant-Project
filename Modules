@@ -1,0 +1,8 @@
+# Download all the modules used from the following commands
+pip install speech_recognition
+pip install pyttsx3
+pip install pywhatkit
+pip install pyjokes
+pip install datetime
+pip install wikipedia
+pip install mysql-connector-python
