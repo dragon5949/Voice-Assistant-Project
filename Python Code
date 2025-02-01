@@ -1,0 +1,117 @@
+import speech_recognition as sr
+import pyttsx3
+import pywhatkit
+import datetime
+import wikipedia
+import pyjokes
+import mysql.connector
+
+# Initialize the recognizer and text-to-speech engine
+listener = sr.Recognizer()
+engine = pyttsx3.init()
+
+# Set voice properties (optional)
+voices = engine.getProperty("voices")
+engine.setProperty("voice", voices[1].id)  # Change index for different voices
+
+def talk(text):
+    """Convert text to speech."""
+    engine.say(text)
+    engine.runAndWait()
+
+def connect_to_database():
+    """Establish a connection to the SQL database."""
+    try:
+        connection = mysql.connector.connect(
+            host='localhost',
+            user='root',
+            password='',
+            database='project'
+        )
+        if connection.is_connected():
+            print("Connected to the database")
+            return connection
+    except mysql.connector.Error as err:
+        print(f"Error: {err}")
+        return None
+
+def log_command(connection, u_name, command):
+    """Log the command issued by the user into the database."""
+    u_time = datetime.datetime.now()
+    query = "INSERT INTO Conversations(u_name, command, u_time) VALUES (%s, %s, %s)"
+    values = (u_name, command, u_time)
+    
+    cursor = connection.cursor()
+    cursor.execute(query, values)
+    connection.commit()
+    cursor.close()
+
+def alexa_command():
+    """Listen for a command and return it as text."""
+    command = ""
+    try:
+        with sr.Microphone() as source:
+            print("Listening...")
+            listener.adjust_for_ambient_noise(source)  # Adjust for ambient noise
+            voice = listener.listen(source)
+            command = listener.recognize_google(voice).lower()
+            print("You said:", command)
+    except sr.UnknownValueError:
+        print("Sorry, I did not understand that.")
+        talk("Sorry, I did not understand that.")
+    except sr.RequestError:
+        print("Sorry, my service is down.")
+        talk("Sorry, my service is down.")
+    except Exception as e:
+        print(f"Error: {e}")
+        talk("An error occurred.")
+    return command
+
+def run_alexa(connection, u_name):
+    """Main loop to run the voice assistant."""
+    while True:
+        command = alexa_command()
+        
+        if "exit" in command:
+            talk("Are you sure you want to exit?")
+            confirmation = alexa_command()
+            if "yes" in confirmation or "yeah" in confirmation:
+                talk("Goodbye!")
+                break  # Break statement to exit the loop
+            else:
+                talk("Okay, let's continue.")
+        
+        log_command(connection, u_name, command)  # Log the command
+        
+        if "play" in command:
+            song = command.replace("play", "").strip()
+            talk(f"Playing {song}")
+            pywhatkit.playonyt(song)
+        elif "time" in command:
+            u_time = datetime.datetime.now().strftime("%H:%M")
+            talk(f"The current time is {u_time}.")
+        elif "superstar" in command:
+            person = command.replace("superstar", "").strip()
+            try:
+                info = wikipedia.summary(person, 2)
+                print(info)
+                talk(info)
+            except wikipedia.exceptions.DisambiguationError as e:
+                talk(f"There are multiple entries for {person}. Please be more specific.")
+                print(e)
+            except wikipedia.exceptions.PageError:
+                talk(f"I couldn't find any information on {person}.")
+        elif "joke" in command:
+            joke = pyjokes.get_joke()
+            print(joke)
+            talk(joke)
+
+# Start the assistant
+if __name__ == "__main__":
+    name = input("Your Name: ")
+    talk(f"Hello {name}, how can I assist you today?")
+    
+    db_connection = connect_to_database()
+    
+    if db_connection:
+        run_alexa(db_connection, name)
